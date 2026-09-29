@@ -27,7 +27,7 @@ com.example.library
 - **Use cases** — Helidon Inject `@Service.Singleton` beans demarcated with `@Tx.Required` (Helidon's local-JDBC transaction, replacing `@Transactional`).
 - **Cross-context events** — Helidon Inject's in-process event bus: `Event.Emitter<LoanCreated>`/`Event.Emitter<LoanClosed>` fired by lending, observed synchronously by `catalog`'s `LoanCreatedEventListener`/`LoanClosedEventListener` (`@Event.Observer`) to toggle `Copy.available`.
 - **Open Library ISBN search** — a Helidon WebClient **HTTP/1.1** (`Http1Client`) adapter with redirect following.
-- **Database** — PostgreSQL with native `UUID` primary/foreign keys (and a `gen_random_uuid()` v4 default), exercised in tests via Testcontainers (`schema.sql` applied with `withInitScript`).
+- **Database** — PostgreSQL with native `UUID` primary/foreign keys (and a `uuid_generate_v4()` v4 default via the `uuid-ossp` extension), exercised in tests via Testcontainers (`schema.sql` applied with `withInitScript`).
 
 ### Porting notes / deviations
 
