@@ -1,0 +1,13 @@
+# Helidon Data JDBC client (default client). Direct JDBC connection; swap for a
+# HikariCP pool via `data.sources.sql` + `provider.hikari` for production.
+data:
+  clients:
+    jdbc:
+      - name: "@default"
+        connection:
+          url: "jdbc:postgresql://localhost:5432/library"
+          username: "library"
+          password: "library"
+          jdbc-driver-class-name: "org.postgresql.Driver"
+
+openlibrary.base-url: "https://openlibrary.org/"
