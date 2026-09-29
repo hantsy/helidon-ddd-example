@@ -7,7 +7,7 @@ import com.example.library.catalog.domain.BookSearchService;
 import com.example.library.catalog.domain.Isbn;
 import io.helidon.config.Config;
 import io.helidon.service.registry.Service;
-import io.helidon.webclient.http2.Http2Client;
+import io.helidon.webclient.http1.Http1Client;
 import jakarta.json.JsonObject;
 
 import java.util.logging.Level;
@@ -15,7 +15,7 @@ import java.util.logging.Logger;
 
 /**
  * Open Library adapter implementing the {@link BookSearchService} domain port,
- * backed by the Helidon WebClient (HTTP/2). The Open Library base URL is
+ * backed by the Helidon WebClient (HTTP/1.1). The Open Library base URL is
  * configurable via the {@code openlibrary.base-url} property.
  */
 @Service.Singleton
@@ -25,7 +25,7 @@ public class OpenLibraryBookSearchService implements BookSearchService {
     /** Maximum number of HTTP redirects to follow before giving up. */
     private static final int MAX_REDIRECTS = 5;
 
-    private final Http2Client client;
+    private final Http1Client client;
 
     @Service.Inject
     public OpenLibraryBookSearchService(Config config) {
@@ -38,11 +38,7 @@ public class OpenLibraryBookSearchService implements BookSearchService {
      * @param baseUrl the Open Library base URL, e.g. {@code https://openlibrary.org/}
      */
     public OpenLibraryBookSearchService(String baseUrl) {
-        this.client = Http2Client.create(builder -> builder
-                .baseUri(baseUrl)
-                // HTTP/1.1 with upgrade to HTTP/2, so the client also works with
-                // plain HTTP/1.1 servers (Open Library, WireMock).
-                .protocolConfig(pc -> pc.priorKnowledge(false)));
+        this.client = Http1Client.create(builder -> builder.baseUri(baseUrl));
     }
 
     @Override

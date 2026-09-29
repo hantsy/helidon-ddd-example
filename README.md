@@ -15,7 +15,7 @@ com.example.library
 │   │                 BookRepository, CopyRepository (@Data.Repository), BookSearchService (port)
 │   ├── application   AddBookToCatalogUseCase, RegisterBookCopyUseCase,
 │   │                 LoanCreatedEventListener, LoanClosedEventListener
-│   └── infrastructure OpenLibraryBookSearchService (Helidon WebClient HTTP/2)
+│   └── infrastructure OpenLibraryBookSearchService (Helidon WebClient HTTP/1.1)
 ├── lending
 │   ├── domain        Loan (aggregate), LoanId/CopyId/UserId (VOs), OverdueFee,
 │   │                 LoanCreated/LoanClosed (events), LoanRepository
@@ -26,7 +26,7 @@ com.example.library
 - **Persistence** — Helidon Data JDBC repositories (`@Data.Repository` + `@Jdbc.Statement`), with implementations generated at compile time by `helidon-data-jdbc-codegen` and rows mapped to aggregates by `@Service.Singleton` row mappers.
 - **Use cases** — Helidon Inject `@Service.Singleton` beans demarcated with `@Tx.Required` (Helidon's local-JDBC transaction, replacing `@Transactional`).
 - **Cross-context events** — Helidon Inject's in-process event bus: `Event.Emitter<LoanCreated>`/`Event.Emitter<LoanClosed>` fired by lending, observed synchronously by `catalog`'s `LoanCreatedEventListener`/`LoanClosedEventListener` (`@Event.Observer`) to toggle `Copy.available`.
-- **Open Library ISBN search** — a Helidon WebClient **HTTP/2** (`Http2Client`) adapter with redirect following and HTTP/1.1 fallback (`priorKnowledge(false)`).
+- **Open Library ISBN search** — a Helidon WebClient **HTTP/1.1** (`Http1Client`) adapter with redirect following.
 - **Database** — PostgreSQL with native `UUID` primary/foreign keys (and a `gen_random_uuid()` v4 default), exercised in tests via Testcontainers (`schema.sql` applied with `withInitScript`).
 
 ### Porting notes / deviations

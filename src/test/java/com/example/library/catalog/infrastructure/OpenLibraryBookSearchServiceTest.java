@@ -4,15 +4,17 @@ import com.example.library.catalog.domain.BookInformation;
 import com.example.library.catalog.domain.BookNotFoundException;
 import com.example.library.catalog.domain.BookSearchException;
 import com.example.library.catalog.domain.Isbn;
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import okhttp3.mockwebserver.SocketPolicy;
-import org.junit.jupiter.api.AfterEach;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.http.Fault;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
-
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -20,9 +22,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Unit tests for {@link OpenLibraryBookSearchService}, the infrastructure adapter
  * behind the {@link com.example.library.catalog.domain.BookSearchService} domain port.
  * <p>
- * The Open Library endpoint is stubbed with okhttp {@code MockWebServer} on a random
- * port, so the adapter exercises the real Helidon WebClient stack against stubbed
- * success and failure responses, with no external network access.
+ * The Open Library endpoint is stubbed with WireMock on a random port, so the
+ * adapter exercises the real Helidon WebClient stack against stubbed success and
+ * failure responses, with no external network access.
  */
 class OpenLibraryBookSearchServiceTest {
 
@@ -30,37 +32,44 @@ class OpenLibraryBookSearchServiceTest {
     private static final String UNKNOWN_ISBN = "9780000000002";
     private static final String KNOWN_ISBN = "9780134685991";
 
-    private MockWebServer server;
-    private OpenLibraryBookSearchService service;
+    private static WireMockServer server;
+    private static OpenLibraryBookSearchService service;
 
-    @BeforeEach
-    void setUp() throws IOException {
-        server = new MockWebServer();
+    @BeforeAll
+    static void setUp() {
+        server = new WireMockServer(options().dynamicPort());
         server.start();
-        service = new OpenLibraryBookSearchService(server.url("/").toString());
+        service = new OpenLibraryBookSearchService("http://localhost:" + server.port() + "/");
     }
 
-    @AfterEach
-    void tearDown() throws IOException {
-        server.shutdown();
+    @AfterAll
+    static void tearDown() {
+        server.stop();
+    }
+
+    @BeforeEach
+    void resetWireMock() {
+        server.resetAll();
     }
 
     @Test
     void searchWithKnownIsbnShouldReturnBookInformation() {
-        server.enqueue(new MockResponse()
-                .setResponseCode(302)
-                .addHeader("Location", "/books/OL31838212M.json"));
-        server.enqueue(new MockResponse()
-                .setResponseCode(200)
-                .addHeader("Content-Type", "application/json")
-                .setBody("""
-                        {
-                          "title": "Effective Java",
-                          "publishers": ["Addison-Wesley"],
-                          "isbn_13": ["9780134685991"],
-                          "revisions": 1
-                        }
-                        """));
+        server.stubFor(get(urlEqualTo("/isbn/" + KNOWN_ISBN + ".json"))
+                .willReturn(aResponse()
+                        .withStatus(302)
+                        .withHeader("Location", "/books/OL31838212M.json")));
+        server.stubFor(get(urlEqualTo("/books/OL31838212M.json"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                {
+                                  "title": "Effective Java",
+                                  "publishers": ["Addison-Wesley"],
+                                  "isbn_13": ["9780134685991"],
+                                  "revisions": 1
+                                }
+                                """)));
 
         BookInformation result = service.search(new Isbn(KNOWN_ISBN));
 
@@ -69,7 +78,8 @@ class OpenLibraryBookSearchServiceTest {
 
     @Test
     void searchWithUnknownIsbnShouldThrowBookNotFoundExceptionWhenUpstreamReturns404() {
-        server.enqueue(new MockResponse().setResponseCode(404));
+        server.stubFor(get(urlEqualTo("/isbn/" + UNKNOWN_ISBN + ".json"))
+                .willReturn(aResponse().withStatus(404)));
 
         assertThatThrownBy(() -> service.search(new Isbn(UNKNOWN_ISBN)))
                 .isInstanceOf(BookNotFoundException.class)
@@ -78,7 +88,8 @@ class OpenLibraryBookSearchServiceTest {
 
     @Test
     void searchShouldThrowBookSearchExceptionWhenUpstreamReturnsErrorStatus() {
-        server.enqueue(new MockResponse().setResponseCode(500));
+        server.stubFor(get(urlEqualTo("/isbn/" + UNKNOWN_ISBN + ".json"))
+                .willReturn(aResponse().withStatus(500)));
 
         assertThatThrownBy(() -> service.search(new Isbn(UNKNOWN_ISBN)))
                 .isInstanceOf(BookSearchException.class)
@@ -87,7 +98,8 @@ class OpenLibraryBookSearchServiceTest {
 
     @Test
     void searchShouldThrowBookSearchExceptionWhenNetworkFails() {
-        server.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START));
+        server.stubFor(get(urlEqualTo("/isbn/" + UNKNOWN_ISBN + ".json"))
+                .willReturn(aResponse().withFault(Fault.CONNECTION_RESET_BY_PEER)));
 
         assertThatThrownBy(() -> service.search(new Isbn(UNKNOWN_ISBN)))
                 .isInstanceOf(BookSearchException.class)
